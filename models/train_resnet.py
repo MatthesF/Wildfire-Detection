@@ -8,7 +8,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.optim as optim
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torchvision import models
 from tqdm import tqdm
 from sklearn.metrics import classification_report, confusion_matrix, f1_score, recall_score
@@ -27,7 +27,7 @@ except ImportError:
 EXPERIMENT = "all"  # "rgb" (3 channels) or "all" (6 channels)
 USE_WANDB = True
 MODEL = "resnet18"  # "resnet18" or "resnet50"
-# Note: Using CosineAnnealingLR for smooth LR decay
+# Note: Using ReduceLROnPlateau for adaptive LR decay based on val_acc
 
 ROOT = Path(__file__).parent.parent
 DATA_DIR = ROOT / "data" / "splits"
@@ -196,11 +196,10 @@ def train():
     model = create_resnet(num_ch, NUM_CLASSES, model_name=MODEL, dropout=DROPOUT).to(DEVICE)
     criterion = nn.CrossEntropyLoss(label_smoothing=LABEL_SMOOTHING)
     optimizer = optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
-    scheduler = CosineAnnealingLR(optimizer, T_max=NUM_EPOCHS, eta_min=1e-6)
+    scheduler = ReduceLROnPlateau(optimizer, mode="max", factor=0.5, patience=2, min_lr=1e-6)
     
     print("Starting training...\n")
     
-    best_score = -1.0
     best_acc = 0.0
     history = {"train_loss": [], "train_acc": [], "val_loss": [], "val_acc": []}
     no_improve = 0
@@ -213,23 +212,17 @@ def train():
         val_per_class = per_class_accuracy(val_preds, val_labels, NUM_CLASSES)
         val_pc_dict = {CLASS_NAMES[i]: val_per_class[i] for i in range(NUM_CLASSES)}
         
-        # Step scheduler (cosine annealing)
+        # Step scheduler based on val_acc
+        scheduler.step(val_acc)
         current_lr = optimizer.param_groups[0]['lr']
-        scheduler.step()
         
         history["train_loss"].append(train_loss)
         history["train_acc"].append(train_acc)
         history["val_loss"].append(val_loss)
         history["val_acc"].append(val_acc)
         
-        macro_f1 = f1_score(val_labels, val_preds, average="macro")
-        recalls = recall_score(val_labels, val_preds, average=None, labels=[0, 1, 2])
-        rec_fire, rec_no_fire, rec_burn = recalls
-        score = 0.6 * macro_f1 + 0.4 * rec_burn
-
-        improved = score > best_score
+        improved = val_acc > best_acc
         if improved:
-            best_score = score
             best_acc = val_acc
             no_improve = 0
             # Save full checkpoint
@@ -239,7 +232,6 @@ def train():
                 "optimizer": optimizer.state_dict(),
                 "scheduler": scheduler.state_dict(),
                 "best_acc": best_acc,
-                "best_score": best_score,
                 "config": {"experiment": EXPERIMENT, "model": MODEL, "channels": num_ch}
             }, exp_dir / "best.pth")
         else:
@@ -257,18 +249,13 @@ def train():
                 "val_fire": val_pc_dict["fire"],
                 "val_no_fire": val_pc_dict["no_fire"],
                 "val_burn_scar": val_pc_dict["burn_scar"],
-                "val_macro_f1": macro_f1,
-                "val_rec_fire": rec_fire,
-                "val_rec_no_fire": rec_no_fire,
-                "val_rec_burn": rec_burn,
-                "val_score": score,
                 "lr": current_lr,
             })
         
         status = " [NEW BEST]" if improved else ""
         val_pc_text = " | ".join(f"{k}:{v:.3f}" for k, v in val_pc_dict.items())
-        print(f"Epoch {epoch+1:2d}/{NUM_EPOCHS} | Train: {train_acc:.3f} | Val: {val_acc:.3f} | Best score: {best_score:.3f} | LR: {current_lr:.2e} | {time.time()-t0:.0f}s{status}")
-        print(f"  Val per-class -> {val_pc_text} | macroF1:{macro_f1:.3f} | rec_burn:{rec_burn:.3f} | score:{score:.3f}")
+        print(f"Epoch {epoch+1:2d}/{NUM_EPOCHS} | Train: {train_acc:.3f} | Val: {val_acc:.3f} | Best: {best_acc:.3f} | LR: {current_lr:.2e} | {time.time()-t0:.0f}s{status}")
+        print(f"  Val per-class -> {val_pc_text}")
         
         if no_improve >= PATIENCE:
             print(f"\nEarly stopping (no improvement for {PATIENCE} epochs)")
