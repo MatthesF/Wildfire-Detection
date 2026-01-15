@@ -5,6 +5,15 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "contextily>=1.7.0",
+    "earthengine-api>=1.7.4",
+    "geopandas>=1.1.2",
+    "matplotlib>=3.10.8",
     "numpy>=2.4.0",
     "pandas>=2.3.3",
+    "python-dotenv>=1.2.1",
+    "scikit-learn>=1.8.0",
+    "sentinelhub>=3.11.3",
+    "shapely>=2.1.2",
+    "tqdm>=4.67.1",
 ]
