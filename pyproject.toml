@@ -10,10 +10,13 @@ dependencies = [
     "geopandas>=1.1.2",
     "matplotlib>=3.10.8",
     "numpy>=2.4.0",
+    "opencv-python>=4.11.0.86",
     "pandas>=2.3.3",
     "python-dotenv>=1.2.1",
     "scikit-learn>=1.8.0",
     "sentinelhub>=3.11.3",
     "shapely>=2.1.2",
+    "torch>=2.9.1",
+    "torchvision>=0.24.1",
     "tqdm>=4.67.1",
 ]

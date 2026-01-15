@@ -18,3 +18,5 @@ Thumbs.db
 
 # Notes
 oliver/
+data/splits
+models/checkpoints

@@ -191,7 +191,6 @@ def build_fire_download(candidates, matches):
     result.to_csv(DATA_PROCESSED / "fire_download.csv", index=False)
     return result
 
-
 # ═══════════════════════════════════════════════════════════════
 # NO_FIRE
 # ═══════════════════════════════════════════════════════════════
