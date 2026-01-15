@@ -1,3 +1,17 @@
-.venv
-.DS_Store
+# Python
 __pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Cache
+*.cache
